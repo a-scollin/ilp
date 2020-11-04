@@ -12,7 +12,17 @@ import com.mapbox.geojson.BoundingBox;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.LineString;
+import com.mapbox.geojson.MultiPolygon;
 import com.mapbox.geojson.Point;
+import com.mapbox.geojson.Polygon;
+import com.mapbox.turf.TurfAssertions;
+import com.mapbox.turf.TurfClassification;
+import com.mapbox.turf.TurfConversion;
+import com.mapbox.turf.TurfJoins;
+import com.mapbox.turf.TurfMeasurement;
+import com.mapbox.turf.TurfMeta;
+import com.mapbox.turf.TurfMisc;
+import com.mapbox.turf.TurfTransformation;
 
 public class Drone {
 
@@ -24,6 +34,7 @@ public class Drone {
 	public List<Point> flightPoints;
 	
 	public List<Position> flightPath = new ArrayList<Position>();
+	private boolean finished;
 	
 	/**TODO:= the nofly zone doesnt work because if the drone can fly completly through some thing 
 	** it doesnt register at all,, also i think the marker recognition when seeing if it was visited or 
@@ -37,6 +48,7 @@ public class Drone {
 		for(Sensor s : App.sensors) {
 			this.unvisited.add(s);
 		}
+		this.finished = false;
 		this.flightpath = new ArrayList<String>();
 		this.flightPoints = new ArrayList<Point>();
 		
@@ -53,6 +65,10 @@ public class Drone {
 		
 		while(true) {
 			
+			if(this.finished) {
+				return;
+			}
+			
 			Sensor nextsensor = this.getClosestSensor();
 			
 //			System.out.println("dronepos = " + this.dronePos.toString() );
@@ -61,13 +77,23 @@ public class Drone {
 			List<Integer> pos = this.reverse(this.Astar(this.dronePos, nextsensor.getPosition()));
 			
 			if(pos.size() == 0 && this.dronePos.distanceFrom(nextsensor.getPosition()) > 0.0001) {
+			
 				
-				//System.out.println("booya" + this.dronePos.directionTo(nextsensor.getPosition()));
-				this.moveDrone(this.dronePos.directionTo(nextsensor.getPosition()));
+				if(!safe(this.dronePos,this.dronePos.directionTo(nextsensor.getPosition()),App.closestdis)) {
+					pos = this.reverse(this.Astar(this.dronePos, this.getSecondClosestSensor().getPosition()));
+				}else{
+					pos.add(this.dronePos.directionTo(nextsensor.getPosition()));
+				};
 				
-			}else {
+				
+				
+				
+				
+			} else {
+				
+				
 				if(pos.size() == 0) {
-					//System.out.println("oooo");
+					
 					pos = this.reverse(this.Astar(this.dronePos, this.getSecondClosestSensor().getPosition()));
 
 				}
@@ -82,7 +108,7 @@ public class Drone {
 				}
 			}
 			
-			App.saveToFile("oogabooga.geojson",this.getMap().toJson(),true);
+			//App.saveToFile("oogabooga.geojson",this.getMap().toJson(),true);
 			
 			//System.out.println("saved.. " + this.moves + " moves left");
 			
@@ -187,7 +213,7 @@ public class Drone {
 	        	
 	        	//TODO ITS SAFE OR MOVE!! SAFE IS deifnatly FUCKED FIX IT !! STEP THROUGH CODE 
 	        	
-	        	if(!safe(newnode,i,App.closestdis)) {
+	        	if(!safe(currentNode,i,App.closestdis)) {
 	        		
 	        		continue;
 	        	}
@@ -259,7 +285,9 @@ public class Drone {
 		double dy = Math.abs(child.getLng()-senspos.getLng());
 		double dx = Math.abs(child.getLat()-senspos.getLat());
 		
-		return 3 * (dy+dx); 
+		
+		//D * (DY DX) D can = 3 !
+		return (dy+dx); 
 		
 	}
 
@@ -287,12 +315,18 @@ public class Drone {
 		
 	}
 	
+	
+	//TODO SAFE is not 100 % may be reading in the polygons or mapbox turfjoins is wrong we will see ! 
 	private boolean safe(Position oldPosition,int randomint, double closestdis) {
 		
 		// This works on a bound is not 100% accurate though better than last time ! 
 		
 		Position oldPos = oldPosition;
 		Position newPos = oldPosition.move(randomint);
+		
+		
+		
+		
 		//Position nePos = oldPos.move((randomint + 9)%36, closestdis);
 	//	Position swPos = newPos.move((randomint + 9)%36, closestdis);
 
@@ -302,20 +336,50 @@ public class Drone {
 		//Point ne = Point.fromLngLat(nePos.getLng(), nePos.getLat());
 		
 		Point newPointse = Point.fromLngLat(newPos.getLng(), newPos.getLat());
+		
+		
+		
 //		
 //		Point sw = Point.fromLngLat(swPos.getLng(), swPos.getLat());
 //		
-//		List<Point> pathPoints = new ArrayList<Point>();
+		List<Point> pathPoints = new ArrayList<Point>();
 //		
-//		pathPoints.add(oldPointnw);
+		pathPoints.add(oldPointnw);
 //		pathPoints.add(ne);
 //		pathPoints.add(sw);
-//		pathPoints.add(newPointse);
+		pathPoints.add(newPointse);
 //		pathPoints.add(oldPointnw);
 
-//		BoundingBox dronePath = BoundingBox.fromPoints(oldPointnw, newPointse);
-//		
+//		Bo
+		
+		List<List<Point>> coords = new ArrayList<List<Point>>();
+		
+		coords.add(pathPoints);
+		
+		
+		Polygon p = Polygon.fromLngLats(coords);
+		
+		List<Polygon> therestricted = new ArrayList<Polygon>();
+		
+		therestricted.add(p);
+		
+		for(List<List<Point>> pl : App.restrictedareas.coordinates()) {
+			
+			
+			therestricted.add(Polygon.fromLngLats(pl));
+		}
+		
+	
+		
+		
+		MultiPolygon mul = MultiPolygon.fromPolygons(therestricted);
+		
+		
+		
+		//	
 //		System.out.println(dronePath.toJson());
+		
+		
 		
 		
 //		
@@ -326,8 +390,6 @@ public class Drone {
 			}
 			
 		}
-		
-		
 	
 		return (!oldPos.move(randomint).isInRestricted() && oldPos.move(randomint).isInArea());
 		
@@ -408,9 +470,17 @@ public class Drone {
 	
 	public boolean moveDrone(int direction) {	
 		
-		if(this.moves < 1 || (this.moves < 150 && this.dronePos.equals(this.starting))) {
-			
+		System.out.println(this.moves);
+		
+		if(this.moves < 1) {
 			return false;
+		}
+		
+		if(this.moves < 85 && this.dronePos.distanceFrom(this.starting) < 0.0003) {
+			
+		
+				
+				return false;
 		
 		} else {
 		
@@ -456,20 +526,28 @@ public class Drone {
 	
 	public Sensor getClosestSensor() {
 		Position currentPos = new Position(this.dronePos.getLng(), this.dronePos.getLat());
-		Sensor closestSensor = new Sensor("null",this.starting, 0.0, "");
+		
+		
+		
+		
 		if(unvisited.size() > 0) {
-			closestSensor = unvisited.get(0);
+			
+			Sensor closestSensor = unvisited.get(0);
 		for (Sensor sensor: unvisited) {
 			if (currentPos.distanceFrom(sensor.getPosition()) < currentPos.distanceFrom(closestSensor.getPosition())) {
 				closestSensor = sensor;
 			}
 		}
-		
+		System.out.println(closestSensor.toString());
+		return closestSensor;
+		}else {
+			this.finished = true;
+			return new Sensor("null",this.starting, 0.0, "");
 		}
 		
-		System.out.println(closestSensor.toString());
+		
 
-		return closestSensor;
+		
 	}
 	
 

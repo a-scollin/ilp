@@ -19,6 +19,7 @@ import com.google.gson.Gson;
 //Importing the mapbox and JSON
 import com.google.gson.JsonObject;
 import com.mapbox.geojson.*;
+import com.mapbox.turf.TurfJoins;
 
 /**
  * Hello world!
@@ -49,6 +50,13 @@ public class App
     	restrictedareas = getRestrictedAreas(port);
     	    	
 		confinementarea = setConfinementArea();
+		
+		
+		
+		saveToFile("nofly.geojson", App.restrictedareas.toJson(), true);
+		
+		
+		
 		
     	Drone theDrone = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
     //	Drone theDrone2 = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
@@ -100,9 +108,23 @@ public class App
     	theDrone.playAstarGreedy();
     	
     	//theDrone.moveDrone(-9);
+
+		Point p = Point.fromLngLat(-3.1862802430987354,55.944434744865205);
+		
     	
-    	saveToFile("drone1.geojson",theDrone.getMap().toJson(),true);
+    	System.out.println(TurfJoins.inside(p, restrictedareas));
+    	System.out.println(TurfJoins.inside(p, confinementarea));
+    	
+    	saveToFile("sensors.geojson",theDrone.getMap().toJson(),true);
     //	saveToFile("drone2.geojson",theDrone2.getMap().toJson(),true);
+    	
+    	
+    	String flightpath = "";
+    	for(String s : theDrone.getFlightPath()) {
+    		flightpath += s + "\n";
+    	}
+    	saveToFile("flightpath.txt",flightpath,false);
+    	
     	
     	
     }

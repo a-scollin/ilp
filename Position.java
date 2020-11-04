@@ -31,12 +31,12 @@ public class Position {
 
 	public Boolean isInRestricted() {
 		
-		return TurfJoins.inside(Point.fromLngLat(lng,lat),App.restrictedareas);
+		return TurfJoins.inside(Point.fromLngLat(this.lng,this.lat),App.restrictedareas);
 		
 	}
 	public Boolean isInArea() {
 		
-		return TurfJoins.inside(Point.fromLngLat(lng,lat),App.confinementarea);
+		return TurfJoins.inside(Point.fromLngLat(this.lng,this.lat),App.confinementarea);
 		
 		
 	}
@@ -72,7 +72,7 @@ public class Position {
 	public Position move(int direction, double dist) {
 		
 		//0 is east 
-		double angle = Math.toRadians(direction * 10);
+		double angle = Math.toRadians((direction) * 10);
 		
 		//drone can only move 0.0003 degrees
 		double lat = dist * Math.cos(angle);
@@ -120,15 +120,13 @@ public class Position {
 		
 		double blat = Math.toRadians(position.getLat());
 		
-		System.out.println(alat);
-		System.out.println(dellng);
-		System.out.println(blat);
+	
 		
 		double X = Math.cos(blat) * Math.sin(dellng);
 		
 		double Y = Math.cos(alat)*Math.sin(blat) - Math.sin(alat)*Math.cos(blat)*Math.cos(dellng);
 	
-		return ((int) Math.round(Math.toDegrees(Math.atan2(X, Y)))/10 + 27)%36;
+		return Math.abs(((int) Math.round(Math.toDegrees(Math.atan2(X, Y)))/10))%36;
 		
 		
 	}
