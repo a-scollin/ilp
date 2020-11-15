@@ -1,7 +1,5 @@
 package uk.ac.ed.inf.aqmap;
 
-import java.util.List;
-
 import com.mapbox.geojson.*;
 import com.mapbox.turf.*;
 
@@ -10,12 +8,13 @@ public class Position {
 	private double lng;
 	private double lat;
 
+	
+	//Constructors
+	
 	public Position(double lng, double lat) {
 		this.lng = lng;
 		this.lat = lat;
 	}
-	
-
 	
 	public Position(Position move) {
 		
@@ -24,11 +23,22 @@ public class Position {
 	}
 
 
+	// Getters, toString method
 
 	public String toString() {
 		return " LNGLAT : " + this.lng + ","+this.lat;
 	}
 
+	public double getLng() {
+		return this.lng;
+	}
+	
+	public double getLat() {
+		return this.lat;
+	}
+
+	//Comparison methods
+	
 	public Boolean isInRestricted() {
 		
 		return TurfJoins.inside(Point.fromLngLat(this.lng,this.lat),App.restrictedareas);
@@ -41,17 +51,37 @@ public class Position {
 		
 	}
 	
-	
-
 	public double distanceFrom(Position position) {
 		return Math.sqrt(Math.pow((position.getLng() - this.lng), 2) + Math.pow((position.getLat() - this.lat), 2));
 	}
-	public double getLng() {
-		return this.lng;
+	
+
+	public boolean equals(Position other) {
+		return (this.lng == other.getLng() && this.lat == other.getLat());
+		
 	}
-	public double getLat() {
-		return this.lat;
+	
+	public Integer directionTo(Position position) {
+		
+		
+		double alat = Math.toRadians(this.lat);
+		
+		double dellng = Math.toRadians(this.lng) - Math.toRadians(position.getLng());
+		
+		double blat = Math.toRadians(position.getLat());
+		
+	
+		
+		double X = Math.cos(blat) * Math.sin(dellng);
+		
+		double Y = Math.cos(alat)*Math.sin(blat) - Math.sin(alat)*Math.cos(blat)*Math.cos(dellng);
+	
+		return Math.abs(((int) Math.round(Math.toDegrees(Math.atan2(X, Y)))/10))%36;
+		
+		
 	}
+	
+	//Move methods
 	
 	public Position move(int direction) {
 		
@@ -74,7 +104,7 @@ public class Position {
 		//0 is east 
 		double angle = Math.toRadians((direction) * 10);
 		
-		//drone can only move 0.0003 degrees
+
 		double lat = dist * Math.cos(angle);
 		double lng = dist * Math.sin(angle);
 		
@@ -85,49 +115,9 @@ public class Position {
 
 }
 
-	public static double getClosestDistanceFromArray(List<Position> poslist) {
-		
-		double ret = 100000000000.00;
-		
-		for(int i = 0 ; i < poslist.size() ; i++) {
-			
-			double dis = poslist.get(i).distanceFrom(poslist.get((i+1)%poslist.size()));
-			
-			if(dis < ret) {
-				ret = dis;
-			}
-			
-			
-		}
-		
-		return ret;
-
-		
-	}
-	public boolean equals(Position other) {
-		return (this.lng == other.getLng() && this.lat == other.getLat());
-		
-	}
-
-
-
-	public Integer directionTo(Position position) {
-		
-		
-		double alat = Math.toRadians(this.lat);
-		
-		double dellng = Math.toRadians(this.lng) - Math.toRadians(position.getLng());
-		
-		double blat = Math.toRadians(position.getLat());
-		
 	
-		
-		double X = Math.cos(blat) * Math.sin(dellng);
-		
-		double Y = Math.cos(alat)*Math.sin(blat) - Math.sin(alat)*Math.cos(blat)*Math.cos(dellng);
-	
-		return Math.abs(((int) Math.round(Math.toDegrees(Math.atan2(X, Y)))/10))%36;
-		
-		
-	}
+
+
+
+
 }

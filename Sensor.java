@@ -1,21 +1,23 @@
 package uk.ac.ed.inf.aqmap;
 
-public class Sensor {
+public class Sensor extends Position{
 
-	private Position sensorPosition;
+	
 	private String name;
 	private double battery;
 	private String reading;
 	
 	public Sensor(String name, Position sensorPosition, double battery, String reading) {
-		this.sensorPosition = sensorPosition;
+		super(sensorPosition);
 		this.name = name;
 		this.battery = battery;
 		this.reading = reading;
 	}
 	
+	//Getters and toString
+	
 	public String toString() {
-		return "SENSOR: " + this.name + ", BATTERY : " + this.battery + " LOCATED @ " + this.sensorPosition.toString();
+		return "SENSOR: " + this.name + ", BATTERY : " + this.battery + " LOCATED @ " + super.toString();
 	}
 
 	public double getBattery() {
@@ -26,7 +28,7 @@ public class Sensor {
 	}
 	
 	public Position getPosition() {
-		return this.sensorPosition;
+		return this;
 	}
 	
 	public String getName() {

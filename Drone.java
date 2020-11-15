@@ -1,106 +1,285 @@
 package uk.ac.ed.inf.aqmap;
 
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Hashtable;
 import java.util.List;
-
-import org.json.JSONObject;
-
-import com.mapbox.geojson.BoundingBox;
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.FeatureCollection;
 import com.mapbox.geojson.LineString;
-import com.mapbox.geojson.MultiPolygon;
 import com.mapbox.geojson.Point;
-import com.mapbox.geojson.Polygon;
-import com.mapbox.turf.TurfAssertions;
-import com.mapbox.turf.TurfClassification;
-import com.mapbox.turf.TurfConversion;
-import com.mapbox.turf.TurfJoins;
-import com.mapbox.turf.TurfMeasurement;
-import com.mapbox.turf.TurfMeta;
-import com.mapbox.turf.TurfMisc;
-import com.mapbox.turf.TurfTransformation;
+
+
 
 public class Drone {
 
-	protected int moves = 150;
+	
+	public int moves = 150;
 	private Position dronePos;
 	private Position starting;
-	public List<Sensor> unvisited; 
+	private List<Sensor> unvisited; 
 	private List<String> flightpath;
-	public List<Point> flightPoints;
+	private List<Point> flightPoints;
+	private double[][] distances;
 	
-	public List<Position> flightPath = new ArrayList<Position>();
-	private boolean finished;
-	
-	/**TODO:= the nofly zone doesnt work because if the drone can fly completly through some thing 
-	** it doesnt register at all,, also i think the marker recognition when seeing if it was visited or 
-	*not is wrong or perhaps the flight path is wrong idk good to look at it...
-	*/
-	
+	//Constructor for drone 
 	public Drone(Position startPos) {
-		this.dronePos = startPos;
-		this.starting = startPos;
-		this.unvisited = new ArrayList<Sensor>();
-		for(Sensor s : App.sensors) {
-			this.unvisited.add(s);
+		
+		
+		if(!startPos.isInArea()) {
+			throw new Error("Start Position needs to be in confinement zone !");
 		}
-		this.finished = false;
+		
+		this.dronePos = startPos;
+		
+		this.starting = startPos;
+		
+		this.unvisited = new ArrayList<Sensor>(App.sensors);
+
 		this.flightpath = new ArrayList<String>();
+		
 		this.flightPoints = new ArrayList<Point>();
 		
 		flightPoints.add(Point.fromLngLat(startPos.getLng(), startPos.getLat()));
+		
+		this.distances = new double[this.unvisited.size()+1][this.unvisited.size()+1];
+		
+		List<Position> allpos = new ArrayList<>();
+		
+		allpos.add(this.starting);
+		allpos.addAll(this.unvisited);
+		
+		for(int i = 0 ; i < allpos.size(); i++) {
+			for(int j = 0 ; j < allpos.size(); j++) {
+				distances[i][j] = allpos.get(i).distanceFrom(allpos.get(j));
+			}
+		}
+		
+	}
+
+	//Greedy implementation of Sensor decision with A-star pathfinding
+	
+	public void playAstarSimAnneal() {
+		
+		
+		
+		 
+			List<Sensor> AllPos = new ArrayList<>();
+			
+			AllPos.add(new Sensor("null",this.starting, 0.0,""));
+			AllPos.addAll(this.unvisited);
+		
+			
+			
+			List<Sensor> permutation = new ArrayList<>();
+
+			permutation.addAll(AllPos);
+			
+			Collections.shuffle(permutation);
+			
+			List<Sensor> best = new ArrayList<>();
+			
+			best.addAll(permutation);
+			
+			
+			
+			double temp = AllPos.size();
+			
+			double t0 = temp;
+			
+			int cyc = -1;
+			
+			while (temp > 1){
+				cyc++;
+				int i = (int) (AllPos.size()*App.rnd.nextDouble());
+				int j = (int) (AllPos.size()*App.rnd.nextDouble());
+			
+				List<Sensor> swap = new ArrayList<>();
+				
+				swap.addAll(permutation);
+				
+				Collections.swap(swap, i, j);
+				
+				double swapval = 0.0;
+				double permval = 0.0;
+				
+				for(int k = 0 ; k < swap.size() ; k++) {
+					swapval += swap.get(k).distanceFrom(swap.get(Math.floorMod(k+1,swap.size())));
+					permval += permutation.get(k).distanceFrom(permutation.get(Math.floorMod(k+1,permutation.size())));
+				}
+				//				
+//				permval += permutation.get(i).distanceFrom(permutation.get(Math.floorMod(i-1,AllPos.size())));
+//				permval += permutation.get(i).distanceFrom(permutation.get(Math.floorMod(i+1,AllPos.size())));
+//				permval += permutation.get(j).distanceFrom(permutation.get(Math.floorMod(j-1,AllPos.size())));
+//				permval += permutation.get(j).distanceFrom(permutation.get(Math.floorMod(j+1,AllPos.size())));
+//				
+//				
+//				swapval += swap.get(i).distanceFrom(swap.get(Math.floorMod(i-1,AllPos.size())));
+//				swapval += swap.get(i).distanceFrom(swap.get(Math.floorMod(i+1,AllPos.size())));
+//				swapval += swap.get(j).distanceFrom(swap.get(Math.floorMod(j-1,AllPos.size())));
+//				swapval += swap.get(j).distanceFrom(swap.get(Math.floorMod(j+1,AllPos.size())));
+//				
+				
+				if(acceptanceProbability(permval, swapval, temp)>App.rnd.nextDouble()) {
+					permutation = new ArrayList<>();
+					permutation.addAll(swap);
+				}
+				
+				permval = 0.0;
+				double bestval = 0.0;
+				
+				for(int k = 0 ; k < permutation.size() ; k++) {
+					permval += permutation.get(k).distanceFrom(permutation.get(Math.floorMod(k+1,permutation.size())));
+					bestval += best.get(k).distanceFrom(best.get(Math.floorMod(k+1,best.size())));
+					
+				}
+				
+				if(permval<bestval) {
+					best = new ArrayList<>();
+					best.addAll(permutation);
+					
+				}
+				
+				temp = t0/(1+(0.999*cyc));
+				
+			
+				
+			}
+			
+		    
+	        int val = 0;
+	        
+	        for(int i = 0 ; i < best.size(); i++) {
+	        	
+	        	if(best.get(i).getName()=="null") {
+	        		System.out.println("Scoop");
+	        		val = i;
+	        		break;
+	        	}
+	        	
+	        }
+	        
+	        	
+			
+			
+			
+			Collections.rotate(best, -val-1); 
+			
+			///Check
+	        
+	        List<Point> points = new ArrayList<>();
+	        
+	        
+	        for(Sensor s : best) {
+	        	System.out.println(s.toString());
+	        	points.add(Point.fromLngLat(s.getLng(), s.getLat()));
+	        	
+	        	
+	        	
+	        }
+	       
+	        
+	        LineString line = LineString.fromLngLats(points);
+	        
+	        App.saveToFile("lines.geojson", line.toJson(), true);
+	   
+	        
+	        
+	        while(true) {
+	        
+	        	Sensor nextsensor = best.get(0);
+	        	best.remove(0);
+	        	List<Integer> pos = this.reverse(this.Astar(this.dronePos, nextsensor.getPosition()));
+	        	for(int i : pos) {
+	        		if(!this.moveDrone(i)) {
+	        			return;
+	        		}
+	        	}
+	        }
+	        
+		 
+	        
+	        
 	}
 	
-	public Position getDronePosition() {
-		return this.dronePos;
-	}
+    public static double acceptanceProbability(double energy, double newEnergy, double temperature) {
+        // If the new solution is better, accept it
+        if (newEnergy < energy) {
+            return 1.0;
+        }
+        // If the new solution is worse, calculate an acceptance probability
+        return Math.exp((energy - newEnergy) / temperature);
+    }
 	
+
 	public void playAstarGreedy() {
+		
 		
 		
 		
 		while(true) {
 			
-			if(this.finished) {
-				return;
-			}
-			
 			Sensor nextsensor = this.getClosestSensor();
 			
-//			System.out.println("dronepos = " + this.dronePos.toString() );
-//			System.out.println("nextsensor = " + nextsensor.toString());
+		
+		//	Sensor nextsensor = this.getNextSensor();
 			
+		
 			List<Integer> pos = this.reverse(this.Astar(this.dronePos, nextsensor.getPosition()));
+
+			
+			//Check to see if the drone is already within distance of sensor 
 			
 			if(pos.size() == 0 && this.dronePos.distanceFrom(nextsensor.getPosition()) > 0.0001) {
-			
+
+				
+				
+				//This is the case that the drone is far enough to move towards sensor direction and read it
 				
 				if(!safe(this.dronePos,this.dronePos.directionTo(nextsensor.getPosition()),App.closestdis)) {
-					pos = this.reverse(this.Astar(this.dronePos, this.getSecondClosestSensor().getPosition()));
+					
+					//If the move is not a safe one it will give up for the time being on the closest and go for second closest
+					if(this.unvisited.size() > 1) {
+						pos = this.reverse(this.Astar(this.dronePos, this.getSecondClosestSensor().getPosition()));
+					}
+					
 				}else{
+					//Fly towards the sensor 
 					pos.add(this.dronePos.directionTo(nextsensor.getPosition()));
-				};
-				
-				
-				
+				}
 				
 				
 			} else {
 				
-				
+				// This is the case that the sensor is too close to fly directly towards sensor and still read 
+				// so we take the second closest sensor..
 				if(pos.size() == 0) {
 					
 					pos = this.reverse(this.Astar(this.dronePos, this.getSecondClosestSensor().getPosition()));
+					
 
+					
+					if(pos.size() == 0) {
+						
+						//If this is the case it will be that we have hit this edge in the last sensor therefore we try to move towards again 
+						//if not go starting and try again..
+						if(!safe(this.dronePos,this.dronePos.directionTo(nextsensor.getPosition()),App.closestdis)) {
+							pos = this.reverse(this.Astar(this.dronePos, this.starting));
+							
+							if(pos.size() == 0) {
+								//Must be done ! 
+								return;
+							}
+						}else {
+							pos.add(this.dronePos.directionTo(nextsensor.getPosition()));
+						}
+					}
+					
 				}
 			}
 			
-			//System.out.println("ABOUT TO MOVE");
-		
+			//moving the drone , this will break once we have no moves or finish 
 			for(int d : pos) {
 				
 				if(!this.moveDrone(d)) {
@@ -108,36 +287,16 @@ public class Drone {
 				}
 			}
 			
-			//App.saveToFile("oogabooga.geojson",this.getMap().toJson(),true);
 			
-			//System.out.println("saved.. " + this.moves + " moves left");
 			
-		}
-		
-	}
+			App.saveToFile("test.geojson", this.getMap().toJson(), true);
 	
-	public List<Integer> getDirections(List<Position> pos) {
-		
-		Position thepos = pos.get(0);
-		
-		List<Integer> ret = new ArrayList<Integer>();
-		
-		for(int i = 1 ; i < pos.size(); i++) {
-			
-			ret.add(thepos.directionTo(pos.get(i)));
-		
-			thepos = pos.get(i);
-		
-			
 		}
-		
-		
-		
-		return ret;
-		
 		
 	}
 
+	
+	//A-star algorithm for path finding between two positions..
 	private List<Integer> reverse(List<Integer> astar) {
 		
 		List<Integer> ret = new ArrayList<Integer>();
@@ -147,28 +306,28 @@ public class Drone {
 			ret.add(astar.get(i));
 		}
 		
-		
-	
-		
-		
 		return ret;
 		
 	}
 
 	private List<Integer> Astar(Position dronePos, Position senspos) {
 		
-	
+		
 	
 		HashSet<Node> open = new HashSet<Node>();
 		
 		HashSet<Node> closed = new HashSet<Node>();
 		
-		open.add(new Node(null,dronePos));
+		open.add(new Node(null,null,dronePos));
 		
 		while(open.size()>0) { 
 			
+			// Making a node that wont be considered just as a place holder in the min comparison..
+			Node currentNode = new Node(null,null,dronePos);
 			
-			Node currentNode = new Node(Integer.MAX_VALUE);
+			currentNode.setF(Integer.MAX_VALUE);
+			
+			//Getting the minimum value F node..
 			
 			for(Node n : open) {
 				if (n.getF()<currentNode.getF()) {
@@ -177,13 +336,16 @@ public class Drone {
 				}
 			}
 			
-			//System.out.println(currentNode.toString());
+			//Updating our open and closed sets 
 			
 			open.remove(currentNode);
 			
 	        closed.add(currentNode);
 	        
-	        if(currentNode.distanceFrom(senspos) <= 0.0002) {
+	        
+	        //If @ position then we are done ! 
+	        
+	        if(currentNode.distanceFrom(senspos) <= 0.0002 || (this.unvisited.size()==0 && currentNode.distanceFrom(this.starting) < 0.0003)){
 	          
 	            List<Integer> directions = new ArrayList<Integer>();
 	            
@@ -191,6 +353,8 @@ public class Drone {
 	            while(currentNode != null) {
 	            
 	                
+	            	//Add the directions to the return list, as we work back from end this will be in reverse
+	            	
 	                if(currentNode.getParent() != null) {
 	                
 	                directions.add(currentNode.getDirection());
@@ -203,15 +367,18 @@ public class Drone {
 	            return directions;
 	       }
 	        
-			
+			//testing child nodes for the current node
+	        
 	        HashSet<Node> children = new HashSet<Node>();
+	        
+	        //testing each direction..
 	        
 	        for(int i = 0; i < 36; i++) {
 	        	
 	        	
 	        	Position newnode = currentNode.move(i);
 	        	
-	        	//TODO ITS SAFE OR MOVE!! SAFE IS deifnatly FUCKED FIX IT !! STEP THROUGH CODE 
+	        	//Valid move ?
 	        	
 	        	if(!safe(currentNode,i,App.closestdis)) {
 	        		
@@ -226,39 +393,28 @@ public class Drone {
 	        	
 	        }
 	        
-//	        for(Node n : children) {
-//        		System.out.println("Direction = " + n.getDirection());
-//        	}
-//	        
-//	        System.out.println(children.size());
-	        
+
 	        for(Node child : children) {
-	        	
-	        	
-	        	
 	        	
 	        	
 	        	if(closed.contains(child)) {
 	        		continue;
 	        	}
 	        	
-	        	
-	        	
+	        	// Setting the childs G,H,F value..
 	        	
 	                child.setG(currentNode.getG() + 0.0003);  
-	                //child.setH(Math.abs(child.getLng()) + Math.abs(child.getLat()));
 	                child.setH(heuristic(child,senspos));
-	                
 	                child.setF(child.getG() + child.getH());
 	                
+	                //If child position is already in open list and on shorter path from start don't add to open
+	                
 	                Boolean breaker = false;
-	                //todo distance from?????????????????????????????
 	                for(Node opennode : open) {
 		        	
 	                	if( Double.compare(child.getLng(),opennode.getLng()) == 0 && Double.compare(child.getLat(),opennode.getLat()) == 0&&  child.getG() > opennode.getG()) {
 	                		breaker = true;
-	                		//CONTINUE WRONG ?
-	        		
+	                			        		
 	                		break;
 		        		}
 	                }
@@ -273,132 +429,51 @@ public class Drone {
 	        
 	        }
 		
-	}
+		}
 		
 		return null;
 		
 	}
 
+	
+	//This is the Manhattan heuristic with a D value of 3 for faster runtime..
 	private double heuristic(Node child, Position senspos) {
-			
-		
+	
 		double dy = Math.abs(child.getLng()-senspos.getLng());
 		double dx = Math.abs(child.getLat()-senspos.getLat());
-		
-		
+			
 		//D * (DY DX) D can = 3 !
-		return (dy+dx); 
-		
-	}
-
-	public void playRandom() {
-		
-
-    	
-		
-		int randomint = App.rnd.ints().findFirst().getAsInt()%36;
-		
-		while(!safe(this.dronePos,randomint,App.closestdis)) {
-			randomint =  App.rnd.ints().findFirst().getAsInt()%36;
-		}
-		
-		while (this.moveDrone(randomint)) {
-			randomint = App.rnd.ints().findFirst().getAsInt()%36;
-			while(!safe(this.dronePos,randomint,App.closestdis)) {
-				randomint =  App.rnd.ints().findFirst().getAsInt()%36;
-			}
-		}
-		
-
-    	
-		
+		return 3*(dy+dx); 
 		
 	}
 	
+	//This is the function for moving the drone..
 	
-	//TODO SAFE is not 100 % may be reading in the polygons or mapbox turfjoins is wrong we will see ! 
 	private boolean safe(Position oldPosition,int randomint, double closestdis) {
 		
 		// This works on a bound is not 100% accurate though better than last time ! 
 		
-		Position oldPos = oldPosition;
-		Position newPos = oldPosition.move(randomint);
-		
-		
-		
-		
-		//Position nePos = oldPos.move((randomint + 9)%36, closestdis);
-	//	Position swPos = newPos.move((randomint + 9)%36, closestdis);
-
-		
-		Point oldPointnw = Point.fromLngLat(oldPos.getLng(), oldPos.getLat());
-		
-		//Point ne = Point.fromLngLat(nePos.getLng(), nePos.getLat());
-		
-		Point newPointse = Point.fromLngLat(newPos.getLng(), newPos.getLat());
-		
-		
-		
-//		
-//		Point sw = Point.fromLngLat(swPos.getLng(), swPos.getLat());
-//		
-		List<Point> pathPoints = new ArrayList<Point>();
-//		
-		pathPoints.add(oldPointnw);
-//		pathPoints.add(ne);
-//		pathPoints.add(sw);
-		pathPoints.add(newPointse);
-//		pathPoints.add(oldPointnw);
-
-//		Bo
-		
-		List<List<Point>> coords = new ArrayList<List<Point>>();
-		
-		coords.add(pathPoints);
-		
-		
-		Polygon p = Polygon.fromLngLats(coords);
-		
-		List<Polygon> therestricted = new ArrayList<Polygon>();
-		
-		therestricted.add(p);
-		
-		for(List<List<Point>> pl : App.restrictedareas.coordinates()) {
-			
-			
-			therestricted.add(Polygon.fromLngLats(pl));
-		}
-		
-	
-		
-		
-		MultiPolygon mul = MultiPolygon.fromPolygons(therestricted);
-		
-		
-		
-		//	
-//		System.out.println(dronePath.toJson());
-		
-		
-		
-		
-//		
 		for(int i = 1 ; i < 10*(Math.ceil(0.0003 / closestdis))+1;i++) {
 			
-			if(oldPos.move(randomint,(closestdis/10)*i).isInRestricted() || !oldPos.move(randomint,(closestdis/10)*i).isInArea()) {
+			if(oldPosition.move(randomint,(closestdis/10)*i).isInRestricted() || !oldPosition.move(randomint,(closestdis/10)*i).isInArea()) {
 				return false;
 			}
 			
 		}
 	
-		return (!oldPos.move(randomint).isInRestricted() && oldPos.move(randomint).isInArea());
+		return (!oldPosition.move(randomint).isInRestricted() && oldPosition.move(randomint).isInArea());
 		
 	}
 
-	public List<String> getFlightPath() {
+	public String getFlightPath() {
 		
-		return this.flightpath;
-				
+		String flightpath = "";
+    	
+		for(String s : this.flightpath){
+    		flightpath += s + "\n";
+    	}
+    	
+		return flightpath;
 	}
 	
 	public FeatureCollection getMap() {
@@ -406,11 +481,9 @@ public class Drone {
 		List<Feature> features = new ArrayList<Feature>();
 		
 		for(Sensor s : App.sensors) {
-		
-			
+	
 			if(!this.unvisited.contains(s)) {
-			
-				
+						
 				Feature visitedsensor = Feature.fromGeometry(Point.fromLngLat(s.getPosition().getLng(),s.getPosition().getLat()));
 				
 						
@@ -455,36 +528,33 @@ public class Drone {
 			}
 		}
 		
-		features.add(getLineString());
+		features.add(Feature.fromGeometry(LineString.fromLngLats(this.flightPoints)));
 		
 		
 		return FeatureCollection.fromFeatures(features);
 		
 	}
 	
-	public Feature getLineString() {
+	private boolean moveDrone(int direction) {	
 		
-		return Feature.fromGeometry(LineString.fromLngLats(this.flightPoints));
-	
-	}
-	
-	public boolean moveDrone(int direction) {	
 		
-		System.out.println(this.moves);
-		
+		//If the drone is out of moves break.. 
 		if(this.moves < 1) {
+			
+			System.out.println("Finished : Out of moves");
 			return false;
+			
 		}
 		
-		if(this.moves < 85 && this.dronePos.distanceFrom(this.starting) < 0.0003) {
-			
 		
-				
+		//If the drone has no sensors and is back at start break..
+		if(this.unvisited.size() == 0 && this.dronePos.distanceFrom(this.starting) < 0.0003) {
+				System.out.println("Finished : Flight success");
 				return false;
 		
 		} else {
 		
-			
+			//Moving the drone and reading the nearest sensor 
 			
 			Position before = new Position(this.dronePos.getLng(),this.dronePos.getLat());		
 					
@@ -492,12 +562,13 @@ public class Drone {
 			
 			String sensorname = readNearest();
 			
+			//Adding data for drone flight path and txt output
 			
 			this.flightpath.add(Integer.toString(151-this.moves)+","+Double.toString(before.getLng())+","+Double.toString(before.getLat())+","+this.dronePos.getLng()+","+this.dronePos.getLat()+","+sensorname);
 			
 			this.flightPoints.add(Point.fromLngLat(this.dronePos.getLng(),this.dronePos.getLat()));
 			
-			
+			//Drone moves therefore decrement moves
 			
 			this.moves--;
 			
@@ -505,18 +576,32 @@ public class Drone {
 		}
 	}
 
+	//function to "read" the nearest sensor ..
+	
 	private String readNearest() {
+		
+		//As the start is refered to as a sensor in our algorithm we must account for this in the reading..
+		
+		if(this.unvisited.size() == 0 && this.dronePos.distanceFrom(this.starting) < 0.0003) {
+			
+			return "null";
+	
+		}
+		
+		//checking we have right distance to read and marking as visited or returning "null"
 		
 		if (this.getClosestSensor().getPosition().distanceFrom(this.dronePos) <= 0.0002) {
 			
 			String sensorname = this.getClosestSensor().getName();
-			System.out.println("DISTANCE CHECK..");
-			System.out.println("DRONE: " +this.dronePos.toString());
-			System.out.println("SENSOR: " + this.getClosestSensor().getPosition().toString());
+			
+//			System.out.println("READING..");
+//			
+//			System.out.println("DRONE: " +this.dronePos.toString());
+
+//			System.out.println("SENSOR: " + this.getClosestSensor().getPosition().toString());
 			
 			this.unvisited.remove(this.getClosestSensor());
 			
-			System.out.println(sensorname);
 			return sensorname;
 		}else {
 			return "null";
@@ -524,11 +609,11 @@ public class Drone {
 		
 	}
 	
-	public Sensor getClosestSensor() {
-		Position currentPos = new Position(this.dronePos.getLng(), this.dronePos.getLat());
-		
-		
-		
+	
+	
+	//returns the closest sensor to drones position 
+	private Sensor getClosestSensor() {
+		Position currentPos = new Position(this.dronePos.getLng(), this.dronePos.getLat());		
 		
 		if(unvisited.size() > 0) {
 			
@@ -538,11 +623,11 @@ public class Drone {
 				closestSensor = sensor;
 			}
 		}
-		System.out.println(closestSensor.toString());
 		return closestSensor;
 		}else {
-			this.finished = true;
+			//If no sensors left to visit return the start ! 
 			return new Sensor("null",this.starting, 0.0, "");
+		
 		}
 		
 		
@@ -550,21 +635,27 @@ public class Drone {
 		
 	}
 	
-
-	public Sensor getSecondClosestSensor() {
-		Position currentPos = new Position(this.dronePos.getLng(), this.dronePos.getLat());
-		Sensor closestSensor = unvisited.get(0);
-		Sensor secondClosest = unvisited.get(1);
-		for (Sensor sensor: unvisited) {
-			if (currentPos.distanceFrom(sensor.getPosition()) < currentPos.distanceFrom(closestSensor.getPosition())) {
-				secondClosest = closestSensor;
-				closestSensor = sensor;
+	private Sensor getSecondClosestSensor() {
+		
+		
+		if(this.unvisited.size() > 1) {
+			Position currentPos = new Position(this.dronePos.getLng(), this.dronePos.getLat());
+			Sensor closestSensor = unvisited.get(0);
+			Sensor secondClosest = unvisited.get(1);
+			for (Sensor sensor: unvisited) {
+				if (currentPos.distanceFrom(sensor.getPosition()) < currentPos.distanceFrom(closestSensor.getPosition())) {
+					secondClosest = closestSensor;
+					closestSensor = sensor;
+				}
 			}
+			
+
+			return secondClosest;
+		}else {
+			
+			return new Sensor("null",this.starting, 0.0,"");
 		}
 		
-		//System.out.println(closestSensor.toString());
-
-		return secondClosest;
 	}
 
 	

@@ -9,24 +9,7 @@ public class Node extends Position {
 	private boolean isEmpty;
 	private Integer direction;
 	
-	public Node(Node Parent, Position p) {
-		super(p.getLng(), p.getLat());
-		this.isEmpty = false;
-		this.f = 0.0;
-		this.g = 0.0;
-		this.h = 0.0;
-		
-		this.Parent = Parent;
-				
-		
-		
-		// TODO Auto-generated constructor stub
-	}
-	
-	public Node(Integer f) {
-		super(0,0);
-		this.f = f;
-	}
+
 	
 	public Node(Integer Direction, Node Parent, Position p) {
 		super(p.getLng(), p.getLat());
@@ -37,23 +20,19 @@ public class Node extends Position {
 		this.direction = Direction;
 		this.Parent = Parent;
 				
-		
-		
-		// TODO Auto-generated constructor stub
 	}
+	
+	//Getters 
+	
+	public Node getParent() {
+		// TODO Auto-generated method stub
+		return this.Parent;
+	}
+	
 	
 	public Integer getDirection() {
 		return this.direction;
 	}
-	
-
-	
-//	public boolean equals(Node other) {
-//		
-//		return(this.getLng() == other.getLng() && this.getLat() == other.getLat() && this.getF() == other.getF() && this.getG() == other.getG() && this.getH() == other.getH() && this.getParent() == other.getParent());
-//		
-//	}
-	
 	
 	public boolean isEmpty() {
 		return this.isEmpty;
@@ -71,7 +50,7 @@ public class Node extends Position {
 		return this.g;
 	}
 	
-	
+	//Setters
 	public void setF(double newf) {
 		this.f = newf;
 	}
@@ -84,11 +63,7 @@ public class Node extends Position {
 		this.h = newh;
 	}
 
-	public Node getParent() {
-		// TODO Auto-generated method stub
-		return this.Parent;
-	}
-	
+	//toString
 	public String toString() {
 		return super.toString() + " F : " + this.f + " DIRECTION : " + this.direction;
 	}

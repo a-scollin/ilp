@@ -29,7 +29,7 @@ public class App
 {
 	
 	public static java.util.Random rnd;
-	public static Sensor[] sensors;
+	public static List<Sensor> sensors;
 	public static MultiPolygon restrictedareas;
 	public static MultiPolygon confinementarea;
     public static double closestdis; 
@@ -44,94 +44,94 @@ public class App
     	int randomiser = Integer.parseInt(args[5]);
     	
     	rnd = new Random(randomiser);
-    	    	
-    	sensors = getSensors(port,args);
-    	    	
+    	
+//    	sensors = getSensors(port,args);
+//    	sensors = getSensors(port,"maps/2020/01/04/");//Broke 34 mves 
+    	//Broke 34 mves 
     	restrictedareas = getRestrictedAreas(port);
     	    	
 		confinementarea = setConfinementArea();
 		
-		
-		
 		saveToFile("nofly.geojson", App.restrictedareas.toJson(), true);
+	
+	
 		
+		testDrone(startingCoords,"maps/"+ args[2] + "/" + args[1] + "/" + args[0],port,false);
 		
-		
-		
-    	Drone theDrone = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
-    //	Drone theDrone2 = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
-	//	Drone theDrone = new Drone(new Position(Double.parseDouble("138.6170768737793"),Double.parseDouble("-34.72292001874438")));
-    	
-//       	System.out.println(theDrone.getDronePosition().isInArea() && !theDrone.getDronePosition().isInRestricted());
-//    	
-//    	System.out.println(theDrone.getClosestSensor().toString());
-// 
-   
-//    	
-//    	theDrone.playRandom();
-//    	
-//    	List<Position> poss = new ArrayList<Position>();
-//    	
-//    	
-//    	
-//    	
-//		for(Point p : theDrone.flightPoints) {
-//			
-//			poss.add(new Position(p.longitude(), p.latitude()));
-//			
-//		}
-//		List<Position> posss = new ArrayList<Position>();
-//		for(int j = poss.size() - 1 ; j >= 0 ; j--) {
-//			
-//			
-//			posss.add(poss.get(j));
-//			
-//		}
-//		
-//		System.out.println("SIZE : " + poss.size());
+		//testAllPaths(port,startingCoords);
 //	
+//		FileWriter fw;
+//		try {
+//			fw = new FileWriter("paths.txt");
 //		
-//		for(int d : theDrone2.getDirections(posss)){
-//			
-//			theDrone2.moveDrone(d);
-//			
-//		}
-		
-    	
-    	//saveToFile("thesensors.geojson",theDrone.getMap().toJson(),true);
-//
-//    	Position pos1 = new Position(-3.1892,55.9442);
-//    	Position pos2 = new Position(-3.1896,55.9442);
+//    	for(String path  : getAllMapPaths(port)) {
 //    	
-//    	System.out.println(pos1.directionTo(pos2));
-    	
-    	theDrone.playAstarGreedy();
-    	
-    	//theDrone.moveDrone(-9);
-
-		Point p = Point.fromLngLat(-3.1862802430987354,55.944434744865205);
-		
-    	
-    	System.out.println(TurfJoins.inside(p, restrictedareas));
-    	System.out.println(TurfJoins.inside(p, confinementarea));
-    	
-    	saveToFile("sensors.geojson",theDrone.getMap().toJson(),true);
-    //	saveToFile("drone2.geojson",theDrone2.getMap().toJson(),true);
-    	
-    	
-    	String flightpath = "";
-    	for(String s : theDrone.getFlightPath()) {
-    		flightpath += s + "\n";
-    	}
-    	saveToFile("flightpath.txt",flightpath,false);
-    	
+//    		
+//    		String[] thepath = path.split("/");
+//				
+//    		 
+//    			
+//    				fw.write(thepath[1]+","+thepath[2]+","+thepath[3]+"\n");
+//    			
+//    		 
+//    		
+//
+//    		
+//    	}
+//		fw.close();
+//
+//    	} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
     	
     	
     }
     
 
     
-  private static MultiPolygon setConfinementArea() {
+  private static void testDrone(String[] startingCoords, String path, String port, boolean test) {
+
+	  sensors = getSensors(port,path);
+	  
+	  Drone testDrone = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
+
+	  System.out.println("Map path : " + path);
+	  
+	  testDrone.playAstarGreedy();
+	  
+	  System.out.println(testDrone.moves + " Moves left.");
+
+	  if(!test) {
+	  
+ 		String[] Splitpath = path.split("/");
+ 		
+ 		saveToFile("flightpath-"+Splitpath[3]+"-"+Splitpath[2]+"-"+Splitpath[1]+".txt", testDrone.getFlightPath(), false);
+ 	
+ 		saveToFile("readings-"+Splitpath[3]+"-"+Splitpath[2]+"-"+Splitpath[1]+".geojson", testDrone.getMap().toJson(), true);	
+	  }else {
+		  saveToFile("testfp.txt", testDrone.getFlightPath(), false);
+		  saveToFile("testr.geojson", testDrone.getMap().toJson(), true);
+	  }
+	  
+		
+		
+	}
+
+
+
+private static void testAllPaths(String port, String[] startingCoords) {
+	
+	  for(String path  : getAllMapPaths(port)) {
+  		
+  		testDrone(startingCoords, path, port, false);
+  	
+	  }
+	}
+
+
+
+private static MultiPolygon setConfinementArea() {
 	
 	  
 	  	Point ForrestHill = Point.fromLngLat(-3.192473,55.946233); 
@@ -202,7 +202,7 @@ private static MultiPolygon getRestrictedAreas(String port) {
   		
   	}
   	
-  	closestdis = Position.getClosestDistanceFromArray(Poslist);
+  	closestdis = getClosestDistanceFromArray(Poslist);
   	
 
   	
@@ -210,9 +210,29 @@ private static MultiPolygon getRestrictedAreas(String port) {
 		
 	}
 
+public static double getClosestDistanceFromArray(List<Position> poslist) {
+	
+	double ret = Double.MAX_VALUE;
+	
+	for(int i = 0 ; i < poslist.size() ; i++) {
+		
+		double dis = poslist.get(i).distanceFrom(poslist.get((i+1)%poslist.size()));
+		
+		if(dis < ret) {
+			ret = dis;
+		}
+		
+		
+	}
+	
+	return ret;
+
+	
+}
 
 
-private static Sensor[] getSensors(String port, String[] args) {
+
+private static List<Sensor> getSensors(String port, String[] args) {
 	  
 	  
 	  String content = "";
@@ -231,7 +251,7 @@ private static Sensor[] getSensors(String port, String[] args) {
   	
   	//Hashtable<String, double[]> sensors = new Hashtable<String, double[]>();
   	
-  	Sensor[] sensors = new Sensor[33];
+  	List<Sensor> sensors = new ArrayList<Sensor>();
 	  for(int i  = 0; i<33;i++) {
 	    	
   		try {
@@ -258,9 +278,61 @@ private static Sensor[] getSensors(String port, String[] args) {
 			//System.out.println(wordsJsonData[i].get("words") + " is at " + sensorData[0] + " , " + sensorData[1] + " with battery .. "+ sensorData[2]);
   		
 			
-			sensors[i] = new Sensor(wordsJsonData[i].get("words").toString(),new Position(sensorData[0],sensorData[1]),sensorData[2],reading);
+			sensors.add(new Sensor(wordsJsonData[i].get("words").toString(),new Position(sensorData[0],sensorData[1]),sensorData[2],reading));
 		
   	}    	 
+		return sensors;
+	}
+
+private static List<Sensor> getSensors(String port, String path) {
+	  
+	  
+	  String content = "";
+	
+	try {
+			content = makeGetRequest(port,path+"/air-quality-data.json");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	
+	JSONObject[] aqJsonData = parseinAirQualityJSON(content);
+	  
+	  
+	  JSONObject[] wordsJsonData = new JSONObject[33];
+	
+	//Hashtable<String, double[]> sensors = new Hashtable<String, double[]>();
+	
+	List<Sensor> sensors = new ArrayList<Sensor>();
+	  for(int i  = 0; i<33;i++) {
+	    	
+		try {
+				wordsJsonData[i] = new JSONObject(makeGetRequest(port,"words/" + aqJsonData[i].getString("location").replace(".", "/") + "/details.json"));
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		
+		JSONObject coords = new JSONObject(wordsJsonData[i].get("coordinates").toString());
+		
+		
+		
+		String reading = aqJsonData[i].get("reading").toString(); 
+		
+		   		
+			double sensorData[] = {coords.getDouble("lng"),coords.getDouble("lat"),aqJsonData[i].getDouble("battery")}; 
+		
+			
+			
+			//System.out.println(wordsJsonData[i].get("words") + " is at " + sensorData[0] + " , " + sensorData[1] + " with battery .. "+ sensorData[2]);
+		
+			
+			sensors.add(new Sensor(wordsJsonData[i].get("words").toString(),new Position(sensorData[0],sensorData[1]),sensorData[2],reading));
+		
+	}    	 
 		return sensors;
 	}
 
@@ -312,7 +384,7 @@ public static String getRGB(double x) {
 	
 }
 
-private static String[] getAllMapPaths(String port) {
+private static List<String> getAllMapPaths(String port) {
 		
 	  	String rootpath = "maps/";
 	  	
@@ -329,7 +401,7 @@ private static String[] getAllMapPaths(String port) {
 		
 		String[] years = getPathsFromHTML(rootpath,content);
 		
-		
+		List<String> ret = new ArrayList<String>();
 		
 		
 		for(int i = 0 ; i < years.length; i++) {
@@ -366,8 +438,7 @@ private static String[] getAllMapPaths(String port) {
 					 * they are all printed here but there is probably a better
 					 * way of sorting them than in a 1d array lol..
 					**/
-					
-					System.out.println(days);
+					ret.add(days[k]);
 					
 				}
 			}
@@ -378,7 +449,7 @@ private static String[] getAllMapPaths(String port) {
 		
 		
 		
-		return null;
+		return ret;
 		
 	}
 
