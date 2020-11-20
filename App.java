@@ -21,17 +21,13 @@ import com.google.gson.JsonObject;
 import com.mapbox.geojson.*;
 import com.mapbox.turf.TurfJoins;
 
-/**
- * Hello world!
- *
- */
 public class App 
 {
 	
 	public static java.util.Random rnd;
 	public static List<Sensor> sensors;
 	public static MultiPolygon restrictedareas;
-	public static MultiPolygon confinementarea;
+	public static MultiPolygon CONFINEMENT_AREA;
     public static double closestdis; 
 	
 	public static void main( String[] args ){
@@ -50,7 +46,7 @@ public class App
     	//Broke 34 mves 
     	restrictedareas = getRestrictedAreas(port);
     	    	
-		confinementarea = setConfinementArea();
+		CONFINEMENT_AREA = setCONFINEMENT_AREA();
 		
 		saveToFile("nofly.geojson", App.restrictedareas.toJson(), true);
 	
@@ -101,6 +97,14 @@ public class App
 	  testDrone.playAstarGreedy();
 	  
 	  System.out.println(testDrone.moves + " Moves left.");
+	  
+	  if(testDrone.hasFailed()) {
+		  System.out.println("DRONE FAILED GREEDY, ATTEMPTING SIMULATED ANNEALING (MAY TAKE A WHILE)");
+		  testDrone = new Drone(new Position(Double.parseDouble(startingCoords[1]),Double.parseDouble(startingCoords[0])));
+		  testDrone.playAstarSimAnneal();
+		  System.out.println(testDrone.moves + " Moves left. SA ");
+
+	  }
 
 	  if(!test) {
 	  
@@ -131,7 +135,7 @@ private static void testAllPaths(String port, String[] startingCoords) {
 
 
 
-private static MultiPolygon setConfinementArea() {
+private static MultiPolygon setCONFINEMENT_AREA() {
 	
 	  
 	  	Point ForrestHill = Point.fromLngLat(-3.192473,55.946233); 

@@ -46,7 +46,7 @@ public class Position {
 	}
 	public Boolean isInArea() {
 		
-		return TurfJoins.inside(Point.fromLngLat(this.lng,this.lat),App.confinementarea);
+		return TurfJoins.inside(Point.fromLngLat(this.lng,this.lat),App.CONFINEMENT_AREA);
 		
 		
 	}

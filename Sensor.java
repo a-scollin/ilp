@@ -19,6 +19,8 @@ public class Sensor extends Position{
 	public String toString() {
 		return "SENSOR: " + this.name + ", BATTERY : " + this.battery + " LOCATED @ " + super.toString();
 	}
+	
+	
 
 	public double getBattery() {
 		return this.battery;
