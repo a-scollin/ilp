@@ -8,12 +8,14 @@ public class Position {
 	private double lng;
 	private double lat;
 
-	// Constructors
+	// Constructor for position from coordinates
 
 	public Position(double lng, double lat) {
 		this.lng = lng;
 		this.lat = lat;
 	}
+
+	// Constructor for position from another position - duplicates position
 
 	public Position(Position copyPosition) {
 
@@ -21,27 +23,34 @@ public class Position {
 		this.lat = copyPosition.getLat();
 	}
 
-	// Getters, toString method
+	// This function returns a string representing the coordinates of a position
 
 	public String toString() {
 		return " LNGLAT : " + this.lng + "," + this.lat;
 	}
 
+
+	// Function for returning the longitude of a position
+	
 	public double getLng() {
 		return this.lng;
 	}
+
+	// Function for returning the latitude of a position 
 
 	public double getLat() {
 		return this.lat;
 	}
 
-	// Comparison methods
+	// Function for testing wether the position is in the nofly zones..
 
 	public Boolean isInRestricted() {
 
 		return TurfJoins.inside(Point.fromLngLat(this.lng, this.lat), App.restrictedareas);
 
 	}
+	
+	// Function for testing wether the position is in the drone confinement zone..
 
 	public Boolean isInArea() {
 
@@ -49,14 +58,20 @@ public class Position {
 
 	}
 
+	// Function for calculating the euclidian distance from this position to another position..
+
 	public double distanceFrom(Position otherPosition) {
 		return Math.sqrt(Math.pow((otherPosition.getLng() - this.lng), 2) + Math.pow((otherPosition.getLat() - this.lat), 2));
 	}
+	
+	// Function for testing wether this position equals another position depending on the longitude and latitude
 
 	public boolean equals(Position otherPosition) {
 		return (this.lng == otherPosition.getLng() && this.lat == otherPosition.getLat());
 
 	}
+
+	// Function for returning the direction from this position to another using trigonomitry
 
 	public Integer directionTo(Position otherPosition) {
 
@@ -74,7 +89,7 @@ public class Position {
 
 	}
 
-	// Move methods
+	// This function returns the position calculated from moving this position in a certain direction for 0.0003 .. 
 
 	public Position move(int direction) {
 
@@ -90,6 +105,8 @@ public class Position {
 		return nextPos;
 
 	}
+
+	// This function returns the position calculated from moving this position in a certain direction for a certain distance .. 
 
 	public Position move(int direction, double dist) {
 
