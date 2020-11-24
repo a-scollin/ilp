@@ -24,12 +24,17 @@ public class Drone {
 	private boolean failed;
 	private List<Sensor> allSensors;
 
-	// Constructor for drone
+	// Constructor for drone class
 	public Drone(Position startPos, List<Sensor> appSensors, Double appClosestDis, Random appRandom) {
 
+
+		// Check if the starting position is not legal 
+		 
 		if (!startPos.isInArea()) {
 			throw new Error("Start Position needs to be in confinement zone !");
 		}
+
+		// Setting the drones attributes
 
 		this.movesLeft = 150;
 
@@ -49,14 +54,20 @@ public class Drone {
 
 		this.flightPoints = new ArrayList<Point>();
 
+		// Adding the starting point as a point in the flight path
+
 		flightPoints.add(Point.fromLngLat(startPos.getLng(), startPos.getLat()));
 
 	}
 
-	// Greedy implementation of Sensor decision with A-star pathfinding
+	// This function carries out the moves for Simulated Annealing implementation of Sensor order decision with A-star pathfinding
 
 	public void playAstarSimAnneal() {
 
+		
+		
+		// Creates a tour of the sensors including the starting position as a sensor..
+		
 		distances = new Hashtable<>();
 
 		List<Sensor> allPoints = new ArrayList<>();
@@ -64,12 +75,16 @@ public class Drone {
 		allPoints.add(new Sensor("null", startingPos, 0.0, ""));
 		allPoints.addAll(unvisitedSensors);
 
+		// Fills a Hashtable with the distances from each sensor to other sensors for comparison in the main loop
+
 		for (Sensor s : allPoints) {
 			distances.put(s, new Hashtable<>());
 			for (Sensor r : allPoints) {
 				distances.get(s).put(r, s.distanceFrom(r));
 			}
 		}
+
+		// Creating the original random permutation of sensors 
 
 		List<Sensor> permutation = new ArrayList<>();
 
@@ -79,25 +94,44 @@ public class Drone {
 
 		Collections.shuffle(permutation);
 
+		// Creating the bestPermutation array
+
 		List<Sensor> bestPermutation = new ArrayList<>();
 
 		for (Sensor s : permutation) {
 			bestPermutation.add(s);
 		}
 
+		// Setting the initial temperature
+
 		double temp = 1000000;
 
-		while (temp > 1) {
 
+		// Loop to decrement the temperature and carry out permutation swaps..
+
+		while (temp > 1) {
+				
+				
+			// Choosing two random index's to swap in the permutation
+			
 			int i = (int) (allPoints.size() * rndSeed.nextDouble());
 			int j = (int) (allPoints.size() * rndSeed.nextDouble());
 
+
+			// Creating a duplicate to the current permutation
+			
 			List<Sensor> swappedPerm = new ArrayList<>();
 
 			for (Sensor s : permutation) {
 				swappedPerm.add(s);
 			}
+			
+			
+			// Swapping the random elements of the permutation copy
+			
 			Collections.swap(swappedPerm, i, j);
+			
+			// Calculating the tour value of the current permutation and swapped permutation using our pre-calculated distances
 
 			double swappedTourValue = 0.0;
 			double permutationTourValue = 0.0;
@@ -108,6 +142,8 @@ public class Drone {
 				permutationTourValue += distances.get(permutation.get(k))
 						.get(permutation.get(Math.floorMod(k + 1, allPoints.size())));
 			}
+			
+			// Check to see wether the swapped permutation is accepted if so the current perm = swapped perm
 
 			if (acceptanceProbability(permutationTourValue, swappedTourValue, temp) > rndSeed.nextDouble()) {
 				permutation = new ArrayList<>();
@@ -116,6 +152,9 @@ public class Drone {
 				}
 			}
 
+
+			// Calculating the current permutation tour value and the best permutation tour value
+			
 			permutationTourValue = 0.0;
 			double bestPermutationTourValue = 0.0;
 
@@ -126,6 +165,8 @@ public class Drone {
 						.get(permutation.get(Math.floorMod(k + 1, allPoints.size())));
 			}
 
+			// If the current permutation is better than the best permutation then update the best permutation to be the current
+			
 			if (permutationTourValue < bestPermutationTourValue) {
 				bestPermutation = new ArrayList<>();
 				for (Sensor s : permutation) {
@@ -133,11 +174,16 @@ public class Drone {
 				}
 
 			}
-
+				
+				
+			// Decrement the temperature ..
 			temp *= 0.999999;
 
 		}
 
+
+		// This loop finds the index at which the placeholder starting position sensor is in the best permutation.. 
+		
 		int startingIndex = 1;
 
 		for (int i = 0; i < bestPermutation.size(); i++) {
@@ -149,10 +195,17 @@ public class Drone {
 
 		}
 
+		// Rotating the best permutation so that the starting position is last to be visited.. 
+
 		Collections.rotate(bestPermutation, -startingIndex - 1);
+
+		// Loop to fly the drone towards each sensor in the best permutation
 
 		while (true) {
 
+
+			// Choosing the next sensor to be flown towards
+			
 			Sensor nextSensor = new Sensor("null", startingPos, 0.0, "");
 			if (bestPermutation.size() > 0) {
 
@@ -160,12 +213,20 @@ public class Drone {
 				bestPermutation.remove(0);
 			}
 
+
+			// A* pathfind towards the next sensor in the best permutation
+			
 			List<Integer> directionPath = Astar(dronePos, nextSensor.getPosition());
+
+
+			// Check to see if the drone is finished
 
 			if (unvisitedSensors.size() == 0 && dronePos.distanceFrom(startingPos) <= 0.0003) {
 				failed = false;
 				return;
 			}
+			
+			// Move the drone each direction outlined in the A* directions
 
 			for (int i : directionPath) {
 				if (!moveDrone(i)) {
@@ -173,16 +234,30 @@ public class Drone {
 				}
 			}
 
+			// Extra moves required if the A* algorithm hits an edge case..
+			
 			List<Integer> extraMoves = new ArrayList<>();
 
 			for (Sensor s : unvisitedSensors) {
+			
+				// This is the case that the A* directions did not actually lead the drone to read the required sensor 	
+					
 				if (s.equals(nextSensor)) {
-
+						
+						
+					// Check if trivial move is required to read the required sensor 
+						
 					if (safe(dronePos, dronePos.directionTo(s), closestDistance)) {
 						extraMoves.add(dronePos.directionTo(s));
 					} else {
+					
+						/** 
+							If trivial move is not possilbe push the sensor into the 2nd position 
+							of the best permutation this means the next sensor in the permutation will be visited 
+							then it will try the required sensor again 
+						**/
 
-						if (bestPermutation.size() > 1) {
+							if (bestPermutation.size() > 1) {
 							ArrayList<Sensor> newBest = new ArrayList<>();
 							for (int i = 0; i < bestPermutation.size(); i++) {
 								if (i == 1) {
@@ -194,7 +269,11 @@ public class Drone {
 							bestPermutation = newBest;
 
 						} else {
-
+						
+							/** 
+								If the permutation size is not > 1 then this is the case that this is the second last sensor so 								we try fly back to start and try sensor again..
+							**/
+							
 							extraMoves.add(dronePos.directionTo(startingPos));
 							bestPermutation.add(nextSensor);
 						}
@@ -202,6 +281,7 @@ public class Drone {
 				}
 			}
 
+			// Do the moves outlined in extra..
 			for (int i : extraMoves) {
 				if (!moveDrone(i)) {
 					return;
@@ -213,20 +293,33 @@ public class Drone {
 
 	}
 
+
+	// This function is the acceptance probability used in the simulated annealing algorithm 
 	private static double acceptanceProbability(double energy, double newEnergy, double temperature) {
+	
 		// If the new solution is better, accept it
 		if (newEnergy < energy) {
 			return 1.0;
 		}
+		
+		// Else return the difference in tour values over the temperature in logarithmic space 
 
 		return Math.exp((energy - newEnergy) / Math.log10(temperature));
 	}
 
+	
+	
+	// This function carries out the moves for Greedy implementation of Sensor order decision with A-star pathfinding
+	
 	public void playAstarGreedy() {
 
 		while (true) {
 
+			// The next sensor to be visited is retrived.. 
+
 			Sensor nextsensor = getClosestSensor();
+
+			// We attempt to Astar towards this sensor
 
 			List<Integer> directionPath = Astar(dronePos, nextsensor.getPosition());
 
@@ -252,28 +345,39 @@ public class Drone {
 
 			} else {
 
-				// This is the case that the sensor is too close to fly directly towards sensor
-				// and still read
-				// so we take the second closest sensor..
+				/**
+				 	This is the case that the sensor is too close to fly directly towards sensor
+					and still read
+					so we take the second closest sensor..
+				**/
+				
 				if (directionPath.size() == 0) {
 
 					directionPath = this.reverse(Astar(dronePos, getSecondClosestSensor().getPosition()));
 
 					if (directionPath.size() == 0) {
 
-						// If this is the case it will be that we have hit this edge in the last sensor
-						// therefore we try to move towards again
-						// if not go starting and try again..
+						/** 
+							If this is the case it will be that we have hit this edge in the last sensor
+							therefore we try to move towards again
+						 	if not go starting and try again.. 
+						**/
 						if (!safe(dronePos, dronePos.directionTo(nextsensor.getPosition()), closestDistance)) {
 							directionPath = Astar(dronePos, startingPos);
 
 							if (directionPath.size() == 0 && dronePos.distanceFrom(startingPos) <= 0.0003) {
-								// Must be done !
+								
+								// Drone must be finished its tour ! 
+								
 								failed = false;
+								
 								return;
 							}
+						
 						} else {
+			
 							directionPath.add(dronePos.directionTo(nextsensor.getPosition()));
+						
 						}
 					}
 
@@ -292,7 +396,8 @@ public class Drone {
 
 	}
 
-	// A-star algorithm for path finding between two directionPathitions..
+	// Function for reversing the order of a list of integers..
+
 	private static List<Integer> reverse(List<Integer> inputList) {
 
 		List<Integer> reversedList = new ArrayList<Integer>();
@@ -304,6 +409,8 @@ public class Drone {
 		return reversedList;
 
 	}
+	
+	// A-star algorithm for path finding the directions for the drone to take between two positions ..
 
 	private List<Integer> Astar(Position startingPosition, Position targetPosition) {
 
@@ -336,7 +443,7 @@ public class Drone {
 
 			closed.add(currentNode);
 
-			// If @ directionPathition then we are done !
+			// If @ targetPosition then we are done !
 
 			if (currentNode.distanceFrom(targetPosition) <= 0.0002
 					|| (unvisitedSensors.size() == 0 && currentNode.distanceFrom(startingPos) < 0.0003)) {
@@ -370,12 +477,14 @@ public class Drone {
 
 				Position newnode = currentNode.move(i);
 
-				// Valid move ?
+				// We check this is a valid move ..
 
 				if (!safe(currentNode, i, closestDistance)) {
 
 					continue;
 				}
+				
+				// We add the canidate to the children of the current Node
 
 				Node newnodee = new Node(i, currentNode, newnode);
 
@@ -395,25 +504,34 @@ public class Drone {
 				child.setH(heuristic(child, targetPosition));
 				child.setF(child.getG() + child.getH());
 
-				// If child directionPathition is already in open list and on shorter path from
-				// start don't add to open
+				// If child is already in open list and on shorter path from current don't add to open
 
 				Boolean breaker = false;
 				for (Node opennode : open) {
 
+					//Comparing if the childs position and open node position are equal.. Double.compare is for accuracy..
+					
 					if (Double.compare(child.getLng(), opennode.getLng()) == 0
 							&& Double.compare(child.getLat(), opennode.getLat()) == 0
 							&& child.getG() > opennode.getG()) {
+							
+						// We dont add.. 
+						
 						breaker = true;
 
 						break;
 					}
 				}
-
+				
+				// Dont add check .. 
+				
 				if (breaker) {
 					continue;
 				}
 
+
+				// We add the child to the candiates in open list..		
+				
 				open.add(child);
 
 			}
@@ -424,7 +542,7 @@ public class Drone {
 
 	}
 
-	// This is the Manhattan heuristic with a D value of 3 for faster runtime..
+	// This is the Manhattan heuristic for use in the Nodes of our A* with a D value of 3 for faster runtime..
 	private static double heuristic(Node child, Position targetPosition) {
 
 		double dy = Math.abs(child.getLng() - targetPosition.getLng());
@@ -435,33 +553,47 @@ public class Drone {
 
 	}
 
-	// This is the function for moving the drone..
+	// This is the function for determining if a move is legal given the direction and the position we are moving from.. 
 
 	private boolean safe(Position oldPosition, int direction, double closestdis) {
 
-		// This works on a bound is not 100% accurate though better than last time !
+		/**
+			We check the positions along the line drawn from the oldPosition to the place we want to move,
+			in each case we will check 10 times the position segments depending on the closest distance of all the fly zones
+			this allows a variable amount of percision to be taken in checking each legal move and reduces the bound for error
+		**/
 
 		for (int i = 1; i < 10 * (Math.ceil(0.0003 / closestdis)) + 1; i++) {
 
+			// We check if this move segment violates our nofly zones or confinement zone..		
+	
 			if (oldPosition.move(direction, (closestdis / 10) * i).isInRestricted()
 					|| !oldPosition.move(direction, (closestdis / 10) * i).isInArea()) {
 				return false;
 			}
 
 		}
-
+		
+		// Check if the move itself is valid .. 
+		
 		return (!oldPosition.move(direction).isInRestricted() && oldPosition.move(direction).isInArea());
 
 	}
 
+
+	// Function for returning the flightpath of the drone for saving..
+	
 	public List<String> getFlightPath() {
 		return flightPath;
 
 	}
-
+	
+	
+	// This is the function for actually moving the drone, we assume in our checks before that the move is safe ! 
+	
 	private boolean moveDrone(int direction) {
 
-		// If the drone is out of moves break..
+		// If the drone is out of moves the drone has failed and we terminate our process..
 		if (movesLeft < 1) {
 			failed = true;
 			System.out.println("Finished : Out of moves");
@@ -493,7 +625,7 @@ public class Drone {
 
 			flightPoints.add(Point.fromLngLat(dronePos.getLng(), dronePos.getLat()));
 
-			// Drone moves therefore decrement moves
+			// Drone moves therefore we decrement the moves of the drone..
 
 			movesLeft--;
 
@@ -506,7 +638,7 @@ public class Drone {
 	private String readNearest() {
 
 		// As the start is refered to as a sensor in our algorithm we must account for
-		// this in the reading..
+		// this when we read a sensor..
 
 		if (unvisitedSensors.size() == 0 && dronePos.distanceFrom(startingPos) < 0.0003) {
 
@@ -536,12 +668,17 @@ public class Drone {
 
 	}
 
-	// returns the closest sensor to drones directionPathition
+	// returns the closest sensor to drones position.. 
 	private Sensor getClosestSensor() {
 
 		Position currentPosition = new Position(dronePos.getLng(), dronePos.getLat());
 
+
+		// If there are no sensors to be visited we return the starting position to return to ..
+		
 		if (unvisitedSensors.size() > 0) {
+
+			// Loop to find the sensor of smallest distance.. 
 
 			Sensor closestSensor = unvisitedSensors.get(0);
 
@@ -556,28 +693,47 @@ public class Drone {
 			}
 			return closestSensor;
 		} else {
+		
 			// If no sensors left to visit return the start !
+		
 			return new Sensor("null", startingPos, 0.0, "");
 
 		}
 
 	}
+	
+	// This is a method for getting the second closest sensor to the drones position, This is used in the Greedy implementation
 
 	private Sensor getSecondClosestSensor() {
 
+		/**
+		 If there are <1 sensors to be visited we return the starting position to return to 
+		 as we will always come back to the closest sensor in the greedy algorithm..
+		**/
+
 		if (unvisitedSensors.size() > 1) {
+	
+			// Finding the sensor of second smallest distance to drone position..	
+		
 			Position currentPosition = new Position(dronePos.getLng(), dronePos.getLat());
+
 			Sensor closestSensor = unvisitedSensors.get(0);
+
 			Sensor secondClosestSensor = unvisitedSensors.get(1);
+
 			for (Sensor sensor : unvisitedSensors) {
+
 				if (currentPosition.distanceFrom(sensor.getPosition()) < currentPosition
 						.distanceFrom(closestSensor.getPosition())) {
 					secondClosestSensor = closestSensor;
+					
 					closestSensor = sensor;
+				
 				}
 			}
 
 			return secondClosestSensor;
+		
 		} else {
 
 			return new Sensor("null", startingPos, 0.0, "");
@@ -585,25 +741,36 @@ public class Drone {
 
 	}
 
+
+	// Function for returning the drones failed boolean ..
+	
 	public boolean hasFailed() {
 
 		return failed;
 	}
 
+	// Function for returning the drones moves variable ..
+	
 	public int getMoves() {
 
 		return movesLeft;
 	}
+
+	// Function for getting the unvisited sensors for the drone ..
 
 	public List<Sensor> getUnvisited() {
 
 		return unvisitedSensors;
 	}
 
+	// Function for getting the flight points from the drone for use in the generation of the GeoJSON map
+
 	public List<Point> getFlightPoints() {
 
 		return flightPoints;
 	}
+
+	// Function for getting all the original sensors from the drone for use in the generation of the GeoJSON map
 
 	public List<Sensor> getAllSensors() {
 		return allSensors;
